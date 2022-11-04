@@ -1,110 +1,123 @@
 package com.example.learn;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.camera.core.CameraX;
+import androidx.camera.core.ImageCapture;
+import androidx.camera.core.ImageCaptureConfig;
+import androidx.camera.core.Preview;
+import androidx.camera.core.PreviewConfig;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
-import android.database.sqlite.SQLiteDatabase;
+import android.content.pm.PackageManager;
+import android.opengl.Matrix;
 import android.os.Bundle;
+import android.util.Rational;
+import android.util.Size;
+import android.view.Surface;
+import android.view.TextureView;
 import android.view.View;
-import android.widget.Button;
-import android.widget.EditText;
-import android.widget.ImageView;
-import android.widget.TextView;
+import android.view.ViewGroup;
+import android.widget.ImageButton;
+import android.widget.Toast;
 
-import com.squareup.picasso.Picasso;
-
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
-
-import java.io.IOException;
-
-import okhttp3.Call;
-import okhttp3.Callback;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.Response;
+import java.io.File;
 
 public class MainActivity extends AppCompatActivity {
-    TextView myText;
-    String resultData;
-    EditText etForSearch;
-    Button button;
-    ImageView img;
-    DbClass dbClass;
+    int REQUEST_CODE_PERMISSIONS=101;
+
+    String [] RequiredPermissions=new String[]{"android.permission.CAMERA","android.permission.WRITE_EXTERNAL_STORAGE","android.permission.READ_EXTERNAL_STORAGE"};
+    TextureView textureView;
+    ImageButton imageButton;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        myText=findViewById(R.id.myText);
-        etForSearch=findViewById(R.id.etForSearching);
-        button=findViewById(R.id.button1);
-        img=findViewById(R.id.imageView);
 
-        OkHttpClient myClient=new OkHttpClient();
-        String url="https://dummyjson.com/products";
+        textureView=findViewById(R.id.textureView);
+        imageButton=findViewById(R.id.imageButton);
 
-        Request fetchData= new Request.Builder().url(url).build();
-        myClient.newCall(fetchData).enqueue(new Callback() {
+        if(permissionsGranted()){
+            startCamera();
+        }
+        else{
+            ActivityCompat.requestPermissions(this,RequiredPermissions,REQUEST_CODE_PERMISSIONS);
+        }
+
+
+
+
+
+    }
+
+    private void startCamera() {
+        CameraX.unbindAll();
+
+        Rational aspectRatio=new Rational(textureView.getWidth(),textureView.getHeight());
+        Size screen=new Size(textureView.getWidth(),textureView.getHeight());
+
+        PreviewConfig config= new PreviewConfig.Builder().setTargetAspectRatio(aspectRatio).setTargetResolution(screen).build();
+        Preview preview=new Preview(config);
+
+        preview.setOnPreviewOutputUpdateListener(new Preview.OnPreviewOutputUpdateListener() {
             @Override
-            public void onFailure(Call call, IOException e) {
-                System.out.println("My Response: Error");
-                e.printStackTrace();
+            public void onUpdated(Preview.PreviewOutput output) {
+                ViewGroup abcd=(ViewGroup) textureView.getParent();
 
-            }
+                abcd.removeView(textureView);
+                abcd.addView(textureView);
 
-            @Override
-            public void onResponse(Call call, Response response) throws IOException {
-                if(response.isSuccessful()){
-                   resultData=response.body().string();
-                }
-                MainActivity.this.runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        try {
-                            JSONObject obj=new JSONObject(resultData);
-                            JSONArray arr=obj.getJSONArray("products");
-                            dbClass=new DbClass(MainActivity.this);
-                            dbClass.getCount();
-                            int a=dbClass.count;
-                            System.out.println("MY COUNT: "+a);
-                            for(int i=a;i<arr.length();i++){
-                                JSONObject jerry=(JSONObject) arr.get(i);
-                                String id= Integer.toString((Integer) jerry.get("id")) ;
-                                String title=(String) jerry.get("title");
-                                String description=(String) jerry.get("description");
-                                String price=Integer.toString((Integer) jerry.get("price"));
-                                String discountPercentage=Double.toString((Double)jerry.get("discountPercentage"));
-                                String rating=Double.toString(Double.parseDouble(jerry.get("rating").toString()));
-                                String stock=Integer.toString((Integer) jerry.get("stock"));
-                                String brand=(String) jerry.get("brand");
-                                String category=(String) jerry.get("category");
-                                String thumbnail=(String) jerry.get("thumbnail");
-                                dbClass=new DbClass(MainActivity.this);
-                                dbClass.insert(id,title,description,price,discountPercentage,rating,stock,brand,category,thumbnail);
+                textureView.setSurfaceTexture(output.getSurfaceTexture());
 
-                            }
-                        } catch (JSONException e) {
-                            e.printStackTrace();
-                        }
-
-                    }
-                });
             }
         });
-        button.setOnClickListener(new View.OnClickListener() {
+
+        ImageCaptureConfig imgConfig= new ImageCaptureConfig.Builder()
+                .setCaptureMode(ImageCapture.CaptureMode.MIN_LATENCY)
+                .setTargetRotation(getWindowManager().getDefaultDisplay().getRotation()).build();
+        ImageCapture imgCapture=new ImageCapture(imgConfig);
+
+
+
+        imageButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                if(etForSearch.length()!=0){
-                    String data=String.valueOf(etForSearch.getText());
-                    dbClass =new DbClass(MainActivity.this);
-                    dbClass.getData(data);
-                    String url=dbClass.thumbnail;
-                    System.out.println("MY DATA: "+url);
-                    Picasso.with(MainActivity.this).load(url).into(img);
-                }
+                File file=new File("sdcard/DCIM/OpenCamera"+System.currentTimeMillis());
+                imgCapture.takePicture(file, new ImageCapture.OnImageSavedListener() {
+                    @Override
+                    public void onImageSaved(@NonNull File file) {
+                        Toast.makeText(MainActivity.this, "Done", Toast.LENGTH_SHORT).show();
+                    }
+
+                    @Override
+                    public void onError(@NonNull ImageCapture.UseCaseError useCaseError, @NonNull String message, @Nullable Throwable cause) {
+                        Toast.makeText(MainActivity.this, "Error", Toast.LENGTH_SHORT).show();
+                    }
+                });
+
             }
         });
 
 
+    }
+
+
+
+
+
+    private boolean permissionsGranted() {
+
+        for(String permission:RequiredPermissions){
+
+            if(ContextCompat.checkSelfPermission(this,permission)!= PackageManager.PERMISSION_GRANTED){
+                return false;
+            }
+        }
+
+
+
+        return true;
     }
 }
