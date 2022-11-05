@@ -12,14 +12,13 @@
       android:layout_height="match_parent"
       app:layout_constraintTop_toTopOf="parent"
       app:layout_constraintBottom_toBottomOf="parent"/>
-  <ImageButton
+  <Button
       android:id="@+id/imageButton"
       android:layout_width="40dp"
       android:layout_height="40dp"
       android:layout_margin="40dp"
       app:layout_constraintBottom_toBottomOf="parent"
       app:layout_constraintStart_toStartOf="parent"
-      app:layout_constraintEnd_toEndOf="parent"
-      android:background="@drawable/ic_baseline_camera_alt_24"/>
+      app:layout_constraintEnd_toEndOf="parent"/>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
